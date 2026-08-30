@@ -8,6 +8,7 @@ const ownerRoutes = require("./routes/owner.routes");
 const storeRoutes = require("./routes/store.routes");
 const categoryRoutes = require("./routes/category.routes");
 const designRoutes = require("./routes/design.routes");
+const goalRoutes = require("./routes/goal.routes");
 
 
 const app = express();
@@ -22,5 +23,6 @@ app.use("/api/owners", ownerRoutes);
 app.use("/api/stores", storeRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/designs", designRoutes);
+app.use("/api/goals", goalRoutes);
 
 module.exports = app;
