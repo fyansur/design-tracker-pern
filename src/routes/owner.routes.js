@@ -1,7 +1,7 @@
 const { Router } = require("express");
 const prisma = require("../lib/prisma");
 const authRequired = require("../middleware/auth.middleware");
-
+const recordActivity = require("../lib/activityLog");
 const router = Router();
 
 router.use(authRequired); // semua route di bawah ini wajib login
@@ -12,6 +12,7 @@ router.post("/", async (req, res) => {
     if (!name) return res.status(400).json({ message: "name wajib diisi" });
 
     const owner = await prisma.owner.create({ data: { name } });
+    await recordActivity({ userId: req.userId, subjectType: "Owner", subjectId: owner.id, event: "created", itemName: owner.name });
     res.status(201).json(owner);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -27,6 +28,7 @@ router.put("/:id", async (req, res) => {
       where: { id: Number(req.params.id) },
       data: { name },
     });
+    await recordActivity({ userId: req.userId, subjectType: "Owner", subjectId: owner.id, event: "updated", itemName: owner.name });
     res.json(owner);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -45,6 +47,7 @@ router.delete("/:id", async (req, res) => {
       });
     }
 
+    await recordActivity({ userId: req.userId, subjectType: "Owner", subjectId: Number(req.params.id), event: "deleted", itemName: "Owner" });
     await prisma.owner.delete({ where: { id: Number(req.params.id) } });
     res.json({ message: "Owner dihapus" });
   } catch (err) {

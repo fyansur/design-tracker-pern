@@ -1,7 +1,7 @@
 const { Router } = require("express");
 const prisma = require("../lib/prisma");
 const authRequired = require("../middleware/auth.middleware");
-
+const recordActivity = require("../lib/activityLog");
 const router = Router();
 router.use(authRequired);
 
@@ -29,6 +29,7 @@ router.post("/", async (req, res) => {
         url: `https://etsy.com/shop/${name}`,
       },
     });
+    await recordActivity({ userId: req.userId, subjectType: "Store", subjectId: store.id, event: "created", itemName: store.name });
     res.status(201).json(store);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -52,6 +53,7 @@ router.put("/:id", async (req, res) => {
         url: name ? `https://etsy.com/shop/${name}` : undefined,
       },
     });
+    await recordActivity({ userId: req.userId, subjectType: "Store", subjectId: updated.id, event: "updated", itemName: updated.name });
     res.json(updated);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -65,6 +67,7 @@ router.delete("/:id", async (req, res) => {
       return res.status(403).json({ message: "Bukan store milik lo" });
     }
 
+    await recordActivity({ userId: req.userId, subjectType: "Store", subjectId: store.id, event: "deleted", itemName: store.name });
     await prisma.store.delete({ where: { id: Number(req.params.id) } });
     res.json({ message: "Store dihapus" });
   } catch (err) {

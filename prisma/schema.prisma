@@ -164,6 +164,7 @@ model DailyGoalTarget {
   targetCount   Int
   effectiveFrom DateTime @db.Date
   createdAt     DateTime @default(now())
+  deletedAt DateTime?
 
   dailyGoal DailyGoal @relation(fields: [dailyGoalId], references: [id])
 

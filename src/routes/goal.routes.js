@@ -1,7 +1,7 @@
 const { Router } = require("express");
 const prisma = require("../lib/prisma");
 const authRequired = require("../middleware/auth.middleware");
-
+const recordActivity = require("../lib/activityLog");
 const router = Router();
 router.use(authRequired);
 
@@ -70,6 +70,7 @@ router.post("/", async (req, res) => {
         deadline: calculateDeadline(durationType, durationAmount),
       },
     });
+    await recordActivity({ userId: req.userId, subjectType: "Goal", subjectId: goal.id, event: "created", itemName: goal.name });
     res.status(201).json(goal);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -85,6 +86,7 @@ router.put("/:id/pin", async (req, res) => {
       where: { id: Number(req.params.id) },
       data: { isPinned: !goal.isPinned, pinnedAt: goal.isPinned ? null : new Date() },
     });
+    await recordActivity({ userId: req.userId, subjectType: "Goal", subjectId: updated.id, event: updated.isPinned ? "pinned" : "unpinned", itemName: updated.name });
     res.json(updated);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -96,6 +98,7 @@ router.delete("/:id", async (req, res) => {
     const goal = await prisma.goal.findUnique({ where: { id: Number(req.params.id) } });
     if (!goal || goal.userId !== req.userId) return res.status(403).json({ message: "Bukan goal milik lo" });
 
+    await recordActivity({ userId: req.userId, subjectType: "Goal", subjectId: goal.id, event: "deleted", itemName: goal.name });
     await prisma.goal.delete({ where: { id: Number(req.params.id) } });
     res.json({ message: "Goal dihapus" });
   } catch (err) {
