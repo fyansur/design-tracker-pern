@@ -17,7 +17,31 @@ router.get("/", async (req, res) => {
         where: { userId: req.userId },
         include: { store: true, owner: true, targets: true },
     });
-    res.json(dailyGoals);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const withProgress = await Promise.all(
+        dailyGoals.map(async (dg) => {
+            const scopeFilter =
+                dg.scope === "STORE" ? { storeId: dg.storeId } :
+                    dg.scope === "OWNER" ? { ownerId: dg.ownerId } :
+                        {}; // GLOBAL: gak ada filter tambahan
+
+            const achievedToday = await prisma.design.count({
+                where: {
+                    userId: req.userId,
+                    isCompleted: true,
+                    completedAt: { gte: today },
+                    ...scopeFilter,
+                },
+            });
+
+            return { ...dg, achievedToday };
+        })
+    );
+
+    res.json(withProgress);
 });
 
 router.post("/", async (req, res) => {

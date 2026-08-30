@@ -5,6 +5,10 @@ const authRequired = require("../middleware/auth.middleware");
 const router = Router();
 router.use(authRequired);
 
+router.get("/", async (req, res) => {
+  const categories = await prisma.category.findMany();
+  res.json(categories);
+});
 router.post("/", async (req, res) => {
   try {
     const { name } = req.body;

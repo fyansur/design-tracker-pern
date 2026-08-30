@@ -6,6 +6,11 @@ const router = Router();
 
 router.use(authRequired); // semua route di bawah ini wajib login
 
+router.get("/", async (req, res) => {
+  const owners = await prisma.owner.findMany();
+  res.json(owners);
+});
+
 router.post("/", async (req, res) => {
   try {
     const { name } = req.body;

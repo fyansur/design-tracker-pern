@@ -11,6 +11,8 @@ const designRoutes = require("./routes/design.routes");
 const goalRoutes = require("./routes/goal.routes");
 const dailyGoalRoutes = require("./routes/dailyGoal.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
+const monitorRoutes = require("./routes/monitor.routes");
+const trashRoutes = require("./routes/trash.routes");
 
 
 const app = express();
@@ -28,5 +30,7 @@ app.use("/api/designs", designRoutes);
 app.use("/api/goals", goalRoutes);
 app.use("/api/daily-goals", dailyGoalRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/monitor", monitorRoutes);
+app.use("/api/trash", trashRoutes);
 
 module.exports = app;
