@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: design-tracker-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: designtracker
+      POSTGRES_PASSWORD: designtracker
+      POSTGRES_DB: design_tracker
+    ports:
+      - "5433:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+volumes:
+  db_data:
