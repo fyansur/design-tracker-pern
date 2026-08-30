@@ -6,6 +6,7 @@ const healthRoutes = require("./routes/health.routes");
 const authRoutes = require("./routes/auth.routes");
 const ownerRoutes = require("./routes/owner.routes");
 const storeRoutes = require("./routes/store.routes");
+const categoryRoutes = require("./routes/category.routes");
 
 const app = express();
 
@@ -17,5 +18,6 @@ app.use("/api/health", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/owners", ownerRoutes);    
 app.use("/api/stores", storeRoutes);
+app.use("/api/categories", categoryRoutes);
 
 module.exports = app;
