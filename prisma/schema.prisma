@@ -147,6 +147,8 @@ model DailyGoal {
   ownerId   Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+  
 
   user    User              @relation(fields: [userId], references: [id])
   store   Store?            @relation(fields: [storeId], references: [id])

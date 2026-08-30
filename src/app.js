@@ -9,6 +9,7 @@ const storeRoutes = require("./routes/store.routes");
 const categoryRoutes = require("./routes/category.routes");
 const designRoutes = require("./routes/design.routes");
 const goalRoutes = require("./routes/goal.routes");
+const dailyGoalRoutes = require("./routes/dailyGoal.routes");
 
 
 const app = express();
@@ -24,5 +25,6 @@ app.use("/api/stores", storeRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/designs", designRoutes);
 app.use("/api/goals", goalRoutes);
+app.use("/api/daily-goals", dailyGoalRoutes);
 
 module.exports = app;
