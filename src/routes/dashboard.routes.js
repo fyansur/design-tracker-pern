@@ -5,8 +5,6 @@ const { getPeriodRange, sameDay, buildChartData } = require("../lib/chartHelpers
 const router = Router();
 router.use(authRequired);
 
-
-
 function buildLast14Days(designs) {
   const result = [];
   for (let i = 13; i >= 0; i--) {
@@ -24,6 +22,23 @@ function buildLast14Days(designs) {
 router.get("/", async (req, res) => {
   try {
     const period = ["week", "month", "year"].includes(req.query.period) ? req.query.period : "week";
+
+    // --- Today stats ---
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+
+    const todayDesigns = await prisma.design.count({
+      where: { userId: req.userId, createdAt: { gte: todayStart, lte: todayEnd } },
+    });
+    const todayCompletedDesigns = await prisma.design.count({
+      where: { userId: req.userId, isCompleted: true, completedAt: { gte: todayStart, lte: todayEnd } },
+    });
+
+    // --- Totals ---
+    const totalStores = await prisma.store.count({ where: { userId: req.userId } });
+    const totalOwners = await prisma.owner.count();
+
+    // --- Period-based stats (chart, ranking) ---
     const { start, end } = getPeriodRange(period);
 
     const totalIdeas = await prisma.design.count({
@@ -45,6 +60,7 @@ router.get("/", async (req, res) => {
       }))
       .sort((a, b) => b.completedCount - a.completedCount);
 
+    // --- 14-day activity feed ---
     const fourteenDaysAgo = new Date();
     fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 13);
     fourteenDaysAgo.setHours(0, 0, 0, 0);
@@ -53,6 +69,7 @@ router.get("/", async (req, res) => {
       select: { completedAt: true },
     });
 
+    // --- Goals ---
     const goals = await prisma.goal.findMany({
       where: { userId: req.userId, isCompleted: false },
       include: { designs: { include: { design: true } } },
@@ -62,6 +79,7 @@ router.get("/", async (req, res) => {
       completedCount: g.designs.filter((dg) => dg.design.isCompleted).length,
     }));
 
+    // --- Daily Goals ---
     const dailyGoals = await prisma.dailyGoal.findMany({
       where: { userId: req.userId },
       include: { store: true, owner: true, targets: true },
@@ -78,13 +96,126 @@ router.get("/", async (req, res) => {
       };
     });
 
+    // --- Recent Activities ---
     const recentActivities = await prisma.activityLog.findMany({
       where: { userId: req.userId },
       orderBy: { createdAt: "desc" },
       take: 20,
     });
 
+    // --- Activity Block: 15 hari, hari ini di tengah (-7 s/d +7) ---
+    const blockDates = Array.from({ length: 15 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() + (i - 7));
+      d.setHours(0, 0, 0, 0);
+      return d;
+    });
+
+    const rangeStart = blockDates[0];
+    const rangeEnd = new Date(blockDates[blockDates.length - 1]);
+    rangeEnd.setHours(23, 59, 59, 999);
+
+    const blockDesigns = await prisma.design.findMany({
+      where: { userId: req.userId, isCompleted: true, completedAt: { gte: rangeStart, lte: rangeEnd } },
+      select: { completedAt: true },
+    });
+
+    function targetOn(dg, date) {
+      const applicable = [...dg.targets]
+        .filter((t) => t.effectiveFrom <= date)
+        .sort((a, b) => b.effectiveFrom - a.effectiveFrom);
+      return applicable[0]?.targetCount ?? null;
+    }
+
+    async function achievedCountOn(dg, date) {
+      const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(date); dayEnd.setHours(23, 59, 59, 999);
+      return prisma.design.count({
+        where: {
+          userId: req.userId, isCompleted: true,
+          completedAt: { gte: dayStart, lte: dayEnd },
+          ...(dg.scope === "STORE" ? { storeId: dg.storeId } : dg.scope === "OWNER" ? { ownerId: dg.ownerId } : {}),
+        },
+      });
+    }
+
+    const activityBlocks = [];
+    for (const date of blockDates) {
+      const count = blockDesigns.filter((d) => sameDay(d.completedAt, date)).length;
+
+      const dailyGoalStatuses = [];
+      for (const dg of dailyGoals) {
+        const target = targetOn(dg, date);
+        const achievedCount = await achievedCountOn(dg, date);
+
+        // Kalau ada target eksplisit, bandingin ke target itu.
+        // Kalau belum ada target (goal blm eksis di tanggal itu), fallback: achieved asal ada yg completed.
+        const achieved = target !== null ? achievedCount >= target : achievedCount > 0;
+
+        dailyGoalStatuses.push({
+          dailyGoalId: dg.id,
+          scope: dg.scope,
+          displayName: dg.scope === "STORE" ? dg.store?.name : dg.scope === "OWNER" ? dg.owner?.name : "Global",
+          achieved,
+        });
+      }
+
+      activityBlocks.push({
+        date: date.toISOString().slice(0, 10),
+        count,
+        isToday: sameDay(date, new Date()),
+        dailyGoalStatuses, // <-- array, bukan satu boolean
+      });
+    }
+
+    const daysInPeriod = [];
+    {
+      const cursor = new Date(start);
+      while (cursor <= end) {
+        daysInPeriod.push(new Date(cursor));
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    }
+
+    const periodDesignsForGoals = await prisma.design.findMany({
+      where: { userId: req.userId, isCompleted: true, completedAt: { gte: start, lte: end } },
+      select: { completedAt: true, storeId: true, ownerId: true },
+    });
+
+    function achievedCountOnSync(dg, date) {
+      return periodDesignsForGoals.filter((d) => {
+        if (!sameDay(d.completedAt, date)) return false;
+        if (dg.scope === "STORE") return d.storeId === dg.storeId;
+        if (dg.scope === "OWNER") return d.ownerId === dg.ownerId;
+        return true; // GLOBAL
+      }).length;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const dailyGoalStats = dailyGoals.map((dg) => {
+      let achievedDays = 0;
+      for (const date of daysInPeriod) {
+        const target = targetOn(dg, date);
+        if (target === null) continue;
+        if (achievedCountOnSync(dg, date) >= target) achievedDays++;
+      }
+
+      return {
+        dailyGoalId: dg.id,
+        scope: dg.scope,
+        displayName: dg.scope === "STORE" ? dg.store?.name : dg.scope === "OWNER" ? dg.owner?.name : "Global",
+        targetCount: targetOn(dg, today),
+        achievedToday: achievedCountOnSync(dg, today),
+        achievedDays,
+        totalDays: daysInPeriod.length,
+      };
+    });
+
     res.json({
+      today: { designs: todayDesigns, completedDesigns: todayCompletedDesigns },
+      totals: { stores: totalStores, owners: totalOwners },
       period,
       totalIdeas,
       completedCount: completedDesigns.length,
@@ -94,10 +225,14 @@ router.get("/", async (req, res) => {
       goals: goalsWithProgress,
       dailyGoals: dailyGoalsToday,
       recentActivities,
+      activityBlocks,
+      dailyGoalStats,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
+
+
 });
 
 module.exports = router;

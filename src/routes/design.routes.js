@@ -20,17 +20,28 @@ router.post("/", async (req, res) => {
         const { name, storeId, ownerId, categoryId, referenceUrl } = req.body;
         if (!name) return res.status(400).json({ message: "name wajib diisi" });
 
+        let resolvedOwnerId = null;
+
+        if (storeId) {
+            // Store dipilih → owner WAJIB ikut owner store ini, ownerId dari body diabaikan total
+            const store = await prisma.store.findUnique({ where: { id: Number(storeId) } });
+            if (!store) return res.status(404).json({ message: "Store tidak ditemukan" });
+            resolvedOwnerId = store.ownerId;
+        } else if (ownerId) {
+            // Store kosong → owner boleh manual
+            resolvedOwnerId = Number(ownerId);
+        }
+
         const design = await prisma.design.create({
             data: {
                 name,
                 userId: req.userId,
                 storeId: storeId ? Number(storeId) : null,
-                ownerId: ownerId ? Number(ownerId) : null,
+                ownerId: resolvedOwnerId,
                 categoryId: categoryId ? Number(categoryId) : null,
                 referenceUrl: referenceUrl || null,
             },
         });
-        await recordActivity({ userId: req.userId, subjectType: "Design", subjectId: design.id, event: "created", itemName: design.name });
         res.status(201).json(design);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -46,42 +57,41 @@ router.put("/:id", async (req, res) => {
 
         const { name, storeId, ownerId, categoryId, referenceUrl, isCompleted } = req.body;
 
-        // === Aturan utama: owner wajib sebelum boleh completed ===
-        const resolvedOwnerId = ownerId !== undefined ? Number(ownerId) : design.ownerId;
+        const nextStoreId = storeId !== undefined ? (storeId ? Number(storeId) : null) : design.storeId;
+
+        let resolvedOwnerId;
+        if (nextStoreId) {
+            // Ada store (baru atau lama) → owner WAJIB ikut owner store, ownerId dari body diabaikan
+            const store = await prisma.store.findUnique({ where: { id: nextStoreId } });
+            resolvedOwnerId = store?.ownerId ?? null;
+        } else {
+            // Gak ada store → owner manual (dari body kalau dikirim, atau tetap yang lama)
+            resolvedOwnerId = ownerId !== undefined ? (ownerId ? Number(ownerId) : null) : design.ownerId;
+        }
+
         if (isCompleted === true && !resolvedOwnerId) {
             return res.status(422).json({
                 message: "Design harus punya owner sebelum bisa di-complete",
-                errors: { ownerId: "Owner wajib diisi" },
+                errors: { ownerId: "Owner wajib diisi (atau pilih store dulu)" },
             });
         }
 
-        // === Auto set/null completedAt, un-complete gak clear ownerId ===
         let completedAt;
-        if (isCompleted === true && !design.isCompleted) {
-            completedAt = new Date();
-        } else if (isCompleted === false && design.isCompleted) {
-            completedAt = null;
-        }
+        if (isCompleted === true && !design.isCompleted) completedAt = new Date();
+        else if (isCompleted === false && design.isCompleted) completedAt = null;
 
         const updated = await prisma.design.update({
             where: { id: Number(req.params.id) },
             data: {
                 name,
-                storeId: storeId !== undefined ? (storeId ? Number(storeId) : null) : undefined,
-                ownerId: ownerId !== undefined ? (ownerId ? Number(ownerId) : null) : undefined,
+                storeId: nextStoreId,
+                ownerId: resolvedOwnerId,
                 categoryId: categoryId !== undefined ? (categoryId ? Number(categoryId) : null) : undefined,
                 referenceUrl,
                 isCompleted,
                 completedAt,
             },
         });
-        if (isCompleted === true && !design.isCompleted) {
-            await recordActivity({ userId: req.userId, subjectType: "Design", subjectId: updated.id, event: "completed", itemName: updated.name });
-        } else if (isCompleted === false && design.isCompleted) {
-            await recordActivity({ userId: req.userId, subjectType: "Design", subjectId: updated.id, event: "pending", itemName: updated.name });
-        } else {
-            await recordActivity({ userId: req.userId, subjectType: "Design", subjectId: updated.id, event: "updated", itemName: updated.name });
-        }
         res.json(updated);
     } catch (err) {
         res.status(500).json({ message: err.message });
