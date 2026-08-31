@@ -134,4 +134,18 @@ router.post("/regenerate-monitor-token", authRequired, async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+
+router.put("/status", authRequired, async (req, res) => {
+  try {
+    const { isOnline } = req.body;
+    const user = await prisma.user.update({
+      where: { id: req.userId },
+      data: { isOnline: Boolean(isOnline) },
+      select: { id: true, name: true, email: true, isOnline: true, monitorToken: true },
+    });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 module.exports = router;
