@@ -72,7 +72,7 @@ router.get("/", async (req, res) => {
     // --- Goals ---
     const goals = await prisma.goal.findMany({
       where: { userId: req.userId, isCompleted: false },
-      include: { designs: { include: { design: true } } },
+      include: { store: true, designs: { include: { design: true } } },
     });
     const goalsWithProgress = goals.map((g) => ({
       ...g,
