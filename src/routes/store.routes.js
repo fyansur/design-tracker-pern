@@ -4,6 +4,7 @@ const authRequired = require("../middleware/auth.middleware");
 const recordActivity = require("../lib/activityLog");
 const router = Router();
 router.use(authRequired);
+const { getPeriodRange, buildChartData } = require("../lib/chartHelpers");
 
 router.get("/", async (req, res) => {
   const stores = await prisma.store.findMany({
@@ -11,6 +12,58 @@ router.get("/", async (req, res) => {
     include: { owner: true },
   });
   res.json(stores);
+});
+
+router.get("/:id", async (req, res) => {
+  try {
+    const store = await prisma.store.findUnique({
+      where: { id: Number(req.params.id) },
+      include: { owner: true },
+    });
+    if (!store || store.userId !== req.userId) {
+      return res.status(403).json({ message: "Bukan store milik lo" });
+    }
+
+    const period = ["week", "month", "year"].includes(req.query.period) ? req.query.period : "week";
+    const { start, end } = getPeriodRange(period);
+
+    const completedDesigns = await prisma.design.findMany({
+      where: { userId: req.userId, storeId: store.id, isCompleted: true, completedAt: { gte: start, lte: end } },
+      select: { completedAt: true },
+    });
+
+    const dailyGoals = await prisma.dailyGoal.findMany({
+      where: {
+        userId: req.userId,
+        OR: [
+          { scope: "STORE", storeId: store.id },
+          { scope: "OWNER", ownerId: store.ownerId },
+          { scope: "GLOBAL" },
+        ],
+      },
+      include: { targets: true },
+    });
+
+    const designs = await prisma.design.findMany({
+      where: { userId: req.userId, storeId: store.id },
+      include: { owner: true, category: true },
+      orderBy: { createdAt: "desc" },
+    });
+
+    res.json({
+      store,
+      period,
+      chartData: buildChartData(completedDesigns, period, start),
+      dailyGoals: dailyGoals.map((dg) => ({
+        id: dg.id,
+        scope: dg.scope,
+        targetCount: [...dg.targets].sort((a, b) => b.effectiveFrom - a.effectiveFrom)[0]?.targetCount ?? null,
+      })),
+      designs,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
 
 router.post("/", async (req, res) => {
