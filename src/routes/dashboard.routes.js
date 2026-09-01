@@ -127,7 +127,10 @@ router.get("/", async (req, res) => {
 
     // --- Recent Activities ---
     const recentActivities = await prisma.activityLog.findMany({
-      where: { userId: req.userId },
+      where: {
+        userId: req.userId,
+        subjectType: { in: ["Design", "Store"] }
+      },
       orderBy: { createdAt: "desc" },
       take: 20,
     });

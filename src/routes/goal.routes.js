@@ -86,7 +86,6 @@ router.put("/:id/pin", async (req, res) => {
       where: { id: Number(req.params.id) },
       data: { isPinned: !goal.isPinned, pinnedAt: goal.isPinned ? null : new Date() },
     });
-    await recordActivity({ userId: req.userId, subjectType: "Goal", subjectId: updated.id, event: updated.isPinned ? "pinned" : "unpinned", itemName: updated.name });
     res.json(updated);
   } catch (err) {
     res.status(500).json({ message: err.message });
