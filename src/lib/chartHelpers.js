@@ -1,3 +1,9 @@
+function toLocalDateString(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 function getPeriodRange(period) {
   const now = new Date();
   const end = new Date(now);
@@ -59,4 +65,5 @@ function buildChartData(designs, period, start) {
   });
 }
 
-module.exports = { getPeriodRange, sameDay, buildChartData };
+
+module.exports = { getPeriodRange, sameDay, buildChartData, toLocalDateString };

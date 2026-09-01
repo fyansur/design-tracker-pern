@@ -1,7 +1,7 @@
 const { Router } = require("express");
 const prisma = require("../lib/prisma");
 const authRequired = require("../middleware/auth.middleware");
-const { getPeriodRange, sameDay, buildChartData } = require("../lib/chartHelpers");
+const { getPeriodRange, sameDay, buildChartData, toLocalDateString } = require("../lib/chartHelpers");
 const router = Router();
 router.use(authRequired);
 
@@ -12,13 +12,16 @@ function buildLast14Days(designs) {
     date.setDate(date.getDate() - i);
     date.setHours(0, 0, 0, 0);
     result.push({
-      date: date.toISOString().slice(0, 10),
+      date: toLocalDateString(date),
       count: designs.filter((d) => sameDay(d.completedAt, date)).length,
     });
   }
   return result;
 }
-
+function pctChange(current, previous) {
+  if (previous === 0) return current === 0 ? 0 : null; // null = gak ada pembanding (baru mulai dari 0)
+  return Math.round(((current - previous) / previous) * 1000) / 10; // 1 angka desimal
+}
 router.get("/", async (req, res) => {
   try {
     const period = ["week", "month", "year"].includes(req.query.period) ? req.query.period : "week";
@@ -33,13 +36,39 @@ router.get("/", async (req, res) => {
     const todayCompletedDesigns = await prisma.design.count({
       where: { userId: req.userId, isCompleted: true, completedAt: { gte: todayStart, lte: todayEnd } },
     });
+    const yesterdayStart = new Date(todayStart);
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+    const yesterdayEnd = new Date(todayEnd);
+    yesterdayEnd.setDate(yesterdayEnd.getDate() - 1);
 
+    const yesterdayDesigns = await prisma.design.count({
+      where: { userId: req.userId, createdAt: { gte: yesterdayStart, lte: yesterdayEnd } },
+    });
+    const yesterdayCompletedDesigns = await prisma.design.count({
+      where: { userId: req.userId, isCompleted: true, completedAt: { gte: yesterdayStart, lte: yesterdayEnd } },
+    });
     // --- Totals ---
     const totalStores = await prisma.store.count({ where: { userId: req.userId } });
     const totalOwners = await prisma.owner.count();
 
     // --- Period-based stats (chart, ranking) ---
     const { start, end } = getPeriodRange(period);
+
+    const periodLengthDays = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
+
+    const prevEnd = new Date(start);
+    prevEnd.setDate(prevEnd.getDate() - 1);
+    prevEnd.setHours(23, 59, 59, 999);
+    const prevStart = new Date(prevEnd);
+    prevStart.setDate(prevStart.getDate() - (periodLengthDays - 1));
+    prevStart.setHours(0, 0, 0, 0);
+
+    const prevTotalIdeas = await prisma.design.count({
+      where: { userId: req.userId, createdAt: { gte: prevStart, lte: prevEnd } },
+    });
+    const prevCompletedDesigns = await prisma.design.count({
+      where: { userId: req.userId, isCompleted: true, completedAt: { gte: prevStart, lte: prevEnd } },
+    });
 
     const totalIdeas = await prisma.design.count({
       where: { userId: req.userId, createdAt: { gte: start, lte: end } },
@@ -148,20 +177,23 @@ router.get("/", async (req, res) => {
         const target = targetOn(dg, date);
         const achievedCount = await achievedCountOn(dg, date);
 
-        // Kalau ada target eksplisit, bandingin ke target itu.
-        // Kalau belum ada target (goal blm eksis di tanggal itu), fallback: achieved asal ada yg completed.
-        const achieved = target !== null ? achievedCount >= target : achievedCount > 0;
+        let status;
+        if (target !== null) {
+          status = achievedCount >= target ? "achieved" : "missed";
+        } else {
+          status = "no-target"; // selalu abu-abu, gak peduli achievedCount berapa
+        }
 
         dailyGoalStatuses.push({
           dailyGoalId: dg.id,
           scope: dg.scope,
           displayName: dg.scope === "STORE" ? dg.store?.name : dg.scope === "OWNER" ? dg.owner?.name : "Global",
-          achieved,
+          status,
         });
       }
 
       activityBlocks.push({
-        date: date.toISOString().slice(0, 10),
+        date: toLocalDateString(date),
         count,
         isToday: sameDay(date, new Date()),
         dailyGoalStatuses, // <-- array, bukan satu boolean
@@ -214,11 +246,18 @@ router.get("/", async (req, res) => {
     });
 
     res.json({
-      today: { designs: todayDesigns, completedDesigns: todayCompletedDesigns },
+      today: {
+        designs: todayDesigns,
+        completedDesigns: todayCompletedDesigns,
+        designsChangePct: pctChange(todayDesigns, yesterdayDesigns),
+        completedChangePct: pctChange(todayCompletedDesigns, yesterdayCompletedDesigns),
+      },
       totals: { stores: totalStores, owners: totalOwners },
       period,
       totalIdeas,
+      totalIdeasChangePct: pctChange(totalIdeas, prevTotalIdeas),
       completedCount: completedDesigns.length,
+      completedCountChangePct: pctChange(completedDesigns.length, prevCompletedDesigns),
       chartData: buildChartData(completedDesigns, period, start),
       ranking,
       activityData: buildLast14Days(last14),

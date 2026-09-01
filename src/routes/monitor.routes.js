@@ -1,6 +1,6 @@
 const { Router } = require("express");
 const prisma = require("../lib/prisma");
-
+const { toLocalDateString } = require("../lib/chartHelpers");
 const router = Router();
 
 router.get("/:token", async (req, res) => {
@@ -30,7 +30,7 @@ router.get("/:token", async (req, res) => {
 
     const byDate = {};
     for (const d of rawDesigns) {
-      const key = d.completedAt.toISOString().slice(0, 10);
+      const key = toLocalDateString(d.completedAt);
       byDate[key] = byDate[key] || [];
       byDate[key].push(d);
     }
@@ -39,7 +39,7 @@ router.get("/:token", async (req, res) => {
     for (let i = 365; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
-      const key = date.toISOString().slice(0, 10);
+      const key = toLocalDateString(date);
       const dayDesigns = byDate[key] || [];
       const count = dayDesigns.length;
       let level = 0;
