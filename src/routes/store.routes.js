@@ -2,6 +2,7 @@ const { Router } = require("express");
 const prisma = require("../lib/prisma");
 const authRequired = require("../middleware/auth.middleware");
 const recordActivity = require("../lib/activityLog");
+const { computeDailyGoalStats } = require("../lib/dailyGoalHelpers");
 const router = Router();
 router.use(authRequired);
 const { getPeriodRange, buildChartData } = require("../lib/chartHelpers");
@@ -41,8 +42,26 @@ router.get("/:id", async (req, res) => {
           { scope: "GLOBAL" },
         ],
       },
-      include: { targets: true },
+      include: { store: true, owner: true, targets: true },
     });
+    const dailyGoalStats = await computeDailyGoalStats({ prisma, userId: req.userId, dailyGoals, start, end });
+
+    const goals = await prisma.goal.findMany({
+      where: {
+        userId: req.userId,
+        isCompleted: false,
+        OR: [
+          { scope: "STORE", storeId: store.id },
+          { scope: "OWNER", ownerId: store.ownerId },
+          { scope: "GLOBAL" },
+        ],
+      },
+      include: { store: true, designs: { include: { design: true } } },
+    });
+    const goalsWithProgress = goals.map((g) => ({
+      ...g,
+      completedCount: g.designs.filter((dg) => dg.design.isCompleted).length,
+    }));
 
     const designs = await prisma.design.findMany({
       where: { userId: req.userId, storeId: store.id },
@@ -54,11 +73,8 @@ router.get("/:id", async (req, res) => {
       store,
       period,
       chartData: buildChartData(completedDesigns, period, start),
-      dailyGoals: dailyGoals.map((dg) => ({
-        id: dg.id,
-        scope: dg.scope,
-        targetCount: [...dg.targets].sort((a, b) => b.effectiveFrom - a.effectiveFrom)[0]?.targetCount ?? null,
-      })),
+      dailyGoalStats,
+      goals: goalsWithProgress,
       designs,
     });
   } catch (err) {
