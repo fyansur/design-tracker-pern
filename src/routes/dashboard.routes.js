@@ -2,6 +2,7 @@ const { Router } = require("express");
 const prisma = require("../lib/prisma");
 const authRequired = require("../middleware/auth.middleware");
 const { getPeriodRange, sameDay, buildChartData, toLocalDateString } = require("../lib/chartHelpers");
+const { computeDailyGoalStats } = require("../lib/dailyGoalHelpers");
 const router = Router();
 router.use(authRequired);
 
@@ -76,7 +77,7 @@ router.get("/", async (req, res) => {
 
     const completedDesigns = await prisma.design.findMany({
       where: { userId: req.userId, isCompleted: true, completedAt: { gte: start, lte: end } },
-      select: { completedAt: true, storeId: true },
+      select: { completedAt: true, storeId: true, ownerId: true },
     });
 
     const stores = await prisma.store.findMany({ where: { userId: req.userId } });
@@ -87,6 +88,16 @@ router.get("/", async (req, res) => {
         color: store.color,
         completedCount: completedDesigns.filter((d) => d.storeId === store.id).length,
       }))
+      .sort((a, b) => b.completedCount - a.completedCount);
+
+    const owners = await prisma.owner.findMany();
+    const rankingByOwner = owners
+      .map((owner) => ({
+        ownerId: owner.id,
+        name: owner.name,
+        completedCount: completedDesigns.filter((d) => d.ownerId === owner.id).length,
+      }))
+      .filter((o) => o.completedCount > 0)
       .sort((a, b) => b.completedCount - a.completedCount);
 
     // --- 14-day activity feed ---
@@ -200,50 +211,7 @@ router.get("/", async (req, res) => {
       });
     }
 
-    const daysInPeriod = [];
-    {
-      const cursor = new Date(start);
-      while (cursor <= end) {
-        daysInPeriod.push(new Date(cursor));
-        cursor.setDate(cursor.getDate() + 1);
-      }
-    }
-
-    const periodDesignsForGoals = await prisma.design.findMany({
-      where: { userId: req.userId, isCompleted: true, completedAt: { gte: start, lte: end } },
-      select: { completedAt: true, storeId: true, ownerId: true },
-    });
-
-    function achievedCountOnSync(dg, date) {
-      return periodDesignsForGoals.filter((d) => {
-        if (!sameDay(d.completedAt, date)) return false;
-        if (dg.scope === "STORE") return d.storeId === dg.storeId;
-        if (dg.scope === "OWNER") return d.ownerId === dg.ownerId;
-        return true; // GLOBAL
-      }).length;
-    }
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const dailyGoalStats = dailyGoals.map((dg) => {
-      let achievedDays = 0;
-      for (const date of daysInPeriod) {
-        const target = targetOn(dg, date);
-        if (target === null) continue;
-        if (achievedCountOnSync(dg, date) >= target) achievedDays++;
-      }
-
-      return {
-        dailyGoalId: dg.id,
-        scope: dg.scope,
-        displayName: dg.scope === "STORE" ? dg.store?.name : dg.scope === "OWNER" ? dg.owner?.name : "Global",
-        targetCount: targetOn(dg, today),
-        achievedToday: achievedCountOnSync(dg, today),
-        achievedDays,
-        totalDays: daysInPeriod.length,
-      };
-    });
+    const dailyGoalStats = await computeDailyGoalStats({ prisma, userId: req.userId, dailyGoals, start, end });
 
     res.json({
       today: {
@@ -266,6 +234,8 @@ router.get("/", async (req, res) => {
       recentActivities,
       activityBlocks,
       dailyGoalStats,
+      ranking,
+      rankingByOwner,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
