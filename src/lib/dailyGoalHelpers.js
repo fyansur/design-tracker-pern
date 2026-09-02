@@ -53,6 +53,8 @@ async function computeDailyGoalStats({ prisma, userId, dailyGoals, start, end })
       achievedToday: achievedCountOnSync(dg, today),
       achievedDays,
       totalDays: daysInPeriod.length,
+      store: dg.store ?? null,
+      owner: dg.owner ?? null,
     };
   });
 }

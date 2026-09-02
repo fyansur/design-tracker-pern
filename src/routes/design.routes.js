@@ -42,6 +42,8 @@ router.post("/", async (req, res) => {
                 referenceUrl: referenceUrl || null,
             },
         });
+
+        await recordActivity({ userId: req.userId, subjectType: "Design", subjectId: design.id, event: "created", itemName: design.name });
         res.status(201).json(design);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -92,6 +94,8 @@ router.put("/:id", async (req, res) => {
                 completedAt,
             },
         });
+        await recordActivity({ userId: req.userId, subjectType: "Design", subjectId: design.id, event: "updated", itemName: design.name });
+        
         res.json(updated);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -127,6 +131,7 @@ router.delete("/:id", async (req, res) => {
 
         await prisma.design.delete({ where: { id: Number(req.params.id) } });
         res.json({ message: "Design dihapus" });
+        await recordActivity({ userId: req.userId, subjectType: "Design", subjectId: design.id, event: "deleted", itemName: design.name });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }

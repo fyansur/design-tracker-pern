@@ -1,19 +1,18 @@
 const { Router } = require("express");
 const prisma = require("../lib/prisma");
 const authRequired = require("../middleware/auth.middleware");
+const recordActivity = require("../lib/activityLog");
 
 const router = Router();
 router.use(authRequired);
 
-// map "type" di URL ke Prisma model accessor + nama tabel asli di Postgres
-// (nama tabel = nama model persis, karena kita gak pakai @@map)
 const TYPES = {
-  owner: { model: "owner", table: "Owner", scoped: false },      // Owner gak terikat userId (sama kayak skema asli)
-  store: { model: "store", table: "Store", scoped: true },
-  category: { model: "category", table: "Category", scoped: false },
-  design: { model: "design", table: "Design", scoped: true },
-  goal: { model: "goal", table: "Goal", scoped: true },
-  "daily-goal": { model: "dailyGoal", table: "DailyGoal", scoped: true },
+  owner: { model: "owner", table: "Owner", scoped: false, subjectType: "Owner" },
+  store: { model: "store", table: "Store", scoped: true, subjectType: "Store" },
+  category: { model: "category", table: "Category", scoped: false, subjectType: null },
+  design: { model: "design", table: "Design", scoped: true, subjectType: "Design" },
+  goal: { model: "goal", table: "Goal", scoped: true, subjectType: null },
+  "daily-goal": { model: "dailyGoal", table: "DailyGoal", scoped: true, subjectType: null },
 };
 
 router.get("/", async (req, res) => {
@@ -47,6 +46,17 @@ router.post("/:type/:id/restore", async (req, res) => {
     where: { id: item.id },
     data: { deletedAt: null },
   });
+
+  if (type.subjectType) {
+    await recordActivity({
+      userId: req.userId,
+      subjectType: type.subjectType,
+      subjectId: restored.id,
+      event: "recovered",
+      itemName: restored.name,
+    });
+  }
+
   res.json(restored);
 });
 

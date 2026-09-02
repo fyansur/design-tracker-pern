@@ -13,6 +13,7 @@ const dailyGoalRoutes = require("./routes/dailyGoal.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
 const monitorRoutes = require("./routes/monitor.routes");
 const trashRoutes = require("./routes/trash.routes");
+const analyticsRoutes = require("./routes/analytics.routes");
 
 
 const app = express();
@@ -32,5 +33,6 @@ app.use("/api/daily-goals", dailyGoalRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/monitor", monitorRoutes);
 app.use("/api/trash", trashRoutes);
+app.use("/api/analytics", analyticsRoutes); 
 
 module.exports = app;
