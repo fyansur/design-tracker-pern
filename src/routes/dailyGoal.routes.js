@@ -97,8 +97,6 @@ router.put("/:id/target", validate(updateTargetSchema), async (req, res) => {
         const { targetCount } = req.body;
         if (!targetCount) return res.status(400).json({ message: "targetCount is required" });
 
-        // upsert row HARI INI — kalau udah ada, update; kalau belum, buat baru.
-        // Hari-hari sebelumnya gak pernah disentuh, histori tetap akurat.
         const target = await prisma.dailyGoalTarget.upsert({
             where: {
                 dailyGoalId_effectiveFrom: {
