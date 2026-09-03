@@ -2,6 +2,8 @@ const { Router } = require("express");
 const prisma = require("../lib/prisma");
 const authRequired = require("../middleware/auth.middleware");
 const recordActivity = require("../lib/activityLog");
+const validate = require("../middleware/validate.middleware");
+const { updateTargetSchema } = require("../validation/dailyGoal.schema");
 
 const router = Router();
 router.use(authRequired);
@@ -85,7 +87,7 @@ router.post("/", async (req, res) => {
     }
 });
 
-router.put("/:id/target", async (req, res) => {
+router.put("/:id/target", validate(updateTargetSchema), async (req, res) => {
     try {
         const dailyGoal = await prisma.dailyGoal.findUnique({ where: { id: Number(req.params.id) } });
         if (!dailyGoal || dailyGoal.userId !== req.userId) {
