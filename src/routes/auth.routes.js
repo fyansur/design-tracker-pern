@@ -11,12 +11,12 @@ router.post("/register", async (req, res) => {
     const { name, email, password } = req.body;
 
     if (!name || !email || !password) {
-      return res.status(400).json({ message: "name, email, password wajib diisi" });
+      return res.status(400).json({ message: "name, email, and password are required" });
     }
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
-      return res.status(409).json({ message: "Email sudah terdaftar" });
+      return res.status(409).json({ message: "Email is already registered" });
     }
 
     const hashed = await bcrypt.hash(password, 10);
@@ -37,17 +37,17 @@ router.post("/login", async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ message: "email dan password wajib diisi" });
+      return res.status(400).json({ message: "email and password are required" });
     }
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-      return res.status(401).json({ message: "Email atau password salah" });
+      return res.status(401).json({ message: "Email or password is incorrect" });
     }
 
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
-      return res.status(401).json({ message: "Email atau password salah" });
+      return res.status(401).json({ message: "Email or password is incorrect" });
     }
 
     const token = jwt.sign(
@@ -75,7 +75,7 @@ router.get("/me", authRequired, async (req, res) => {
   });
 
   if (!user) {
-    return res.status(404).json({ message: "User tidak ditemukan" });
+    return res.status(404).json({ message: "User not found" });
   }
 
   res.json(user);
@@ -83,13 +83,13 @@ router.get("/me", authRequired, async (req, res) => {
 
 router.post("/logout", (req, res) => {
   res.clearCookie("token");
-  res.json({ message: "Logout berhasil" });
+  res.json({ message: "Logout successful" });
 });
 
 router.put("/profile", authRequired, async (req, res) => {
   try {
     const { name } = req.body;
-    if (!name) return res.status(400).json({ message: "name wajib diisi" });
+    if (!name) return res.status(400).json({ message: "name is required" });
 
     const user = await prisma.user.update({
       where: { id: req.userId },
@@ -106,16 +106,16 @@ router.put("/password", authRequired, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
     if (!currentPassword || !newPassword) {
-      return res.status(400).json({ message: "currentPassword dan newPassword wajib diisi" });
+      return res.status(400).json({ message: "currentPassword and newPassword are required" });
     }
 
     const user = await prisma.user.findUnique({ where: { id: req.userId } });
     const valid = await bcrypt.compare(currentPassword, user.password);
-    if (!valid) return res.status(401).json({ message: "Password lama salah" });
+    if (!valid) return res.status(401).json({ message: "Current password is incorrect" });
 
     const hashed = await bcrypt.hash(newPassword, 10);
     await prisma.user.update({ where: { id: req.userId }, data: { password: hashed } });
-    res.json({ message: "Password berhasil diganti" });
+    res.json({ message: "Password successfully changed" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

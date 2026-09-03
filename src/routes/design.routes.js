@@ -18,14 +18,14 @@ router.get("/", async (req, res) => {
 router.post("/", async (req, res) => {
     try {
         const { name, storeId, ownerId, categoryId, referenceUrl } = req.body;
-        if (!name) return res.status(400).json({ message: "name wajib diisi" });
+        if (!name) return res.status(400).json({ message: "Name is required" });
 
         let resolvedOwnerId = null;
 
         if (storeId) {
-            // Store dipilih → owner WAJIB ikut owner store ini, ownerId dari body diabaikan total
+            // Store selected → owner MUST follow the store's owner, ownerId from body is ignored
             const store = await prisma.store.findUnique({ where: { id: Number(storeId) } });
-            if (!store) return res.status(404).json({ message: "Store tidak ditemukan" });
+            if (!store) return res.status(404).json({ message: "Store not found" });
             resolvedOwnerId = store.ownerId;
         } else if (ownerId) {
             // Store kosong → owner boleh manual
@@ -54,7 +54,7 @@ router.put("/:id", async (req, res) => {
     try {
         const design = await prisma.design.findUnique({ where: { id: Number(req.params.id) } });
         if (!design || design.userId !== req.userId) {
-            return res.status(403).json({ message: "Bukan design milik lo" });
+            return res.status(403).json({ message: "Not your design" });
         }
 
         const { name, storeId, ownerId, categoryId, referenceUrl, isCompleted } = req.body;
@@ -73,8 +73,8 @@ router.put("/:id", async (req, res) => {
 
         if (isCompleted === true && !resolvedOwnerId) {
             return res.status(422).json({
-                message: "Design harus punya owner sebelum bisa di-complete",
-                errors: { ownerId: "Owner wajib diisi (atau pilih store dulu)" },
+                message: "Design must have an owner before it can be completed",
+                errors: { ownerId: "Owner is required (or select a store first)" },
             });
         }
 
@@ -106,7 +106,7 @@ router.put("/:id/pin", async (req, res) => {
     try {
         const design = await prisma.design.findUnique({ where: { id: Number(req.params.id) } });
         if (!design || design.userId !== req.userId) {
-            return res.status(403).json({ message: "Bukan design milik lo" });
+            return res.status(403).json({ message: "Not your design" });
         }
 
         const updated = await prisma.design.update({
@@ -126,11 +126,11 @@ router.delete("/:id", async (req, res) => {
     try {
         const design = await prisma.design.findUnique({ where: { id: Number(req.params.id) } });
         if (!design || design.userId !== req.userId) {
-            return res.status(403).json({ message: "Bukan design milik lo" });
+            return res.status(403).json({ message: "Not your design" });
         }
 
         await prisma.design.delete({ where: { id: Number(req.params.id) } });
-        res.json({ message: "Design dihapus" });
+        res.json({ message: "Design deleted" });
         await recordActivity({ userId: req.userId, subjectType: "Design", subjectId: design.id, event: "deleted", itemName: design.name });
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -140,16 +140,16 @@ router.delete("/:id", async (req, res) => {
 router.post("/:id/goals", async (req, res) => {
     try {
         const { goalId } = req.body;
-        if (!goalId) return res.status(400).json({ message: "goalId wajib diisi" });
+        if (!goalId) return res.status(400).json({ message: "goalId is required" });
 
         const design = await prisma.design.findUnique({ where: { id: Number(req.params.id) } });
         if (!design || design.userId !== req.userId) {
-            return res.status(403).json({ message: "Bukan design milik lo" });
+            return res.status(403).json({ message: "Not your design" });
         }
 
         const goal = await prisma.goal.findUnique({ where: { id: Number(goalId) } });
         if (!goal || goal.userId !== req.userId) {
-            return res.status(403).json({ message: "Bukan goal milik lo" });
+            return res.status(403).json({ message: "Not your goal" });
         }
 
         const link = await prisma.designGoal.create({
@@ -159,7 +159,7 @@ router.post("/:id/goals", async (req, res) => {
     } catch (err) {
         if (err.code === "P2002") {
             // unique constraint [designId, goalId] kena — udah pernah di-assign
-            return res.status(409).json({ message: "Design ini udah ke-assign ke goal ini" });
+            return res.status(409).json({ message: "Design is already assigned to this goal" });
         }
         res.status(500).json({ message: err.message });
     }
@@ -175,7 +175,7 @@ router.delete("/:id/goals/:goalId", async (req, res) => {
                 },
             },
         });
-        res.json({ message: "Design dilepas dari goal" });
+        res.json({ message: "Design removed from goal" });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }

@@ -14,7 +14,7 @@ router.get("/", async (req, res) => {
 router.post("/", async (req, res) => {
   try {
     const { name } = req.body;
-    if (!name) return res.status(400).json({ message: "name wajib diisi" });
+    if (!name) return res.status(400).json({ message: "name is required" });
 
     const owner = await prisma.owner.create({ data: { name } });
     await recordActivity({ userId: req.userId, subjectType: "Owner", subjectId: owner.id, event: "created", itemName: owner.name });
@@ -27,7 +27,7 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const { name } = req.body;
-    if (!name) return res.status(400).json({ message: "name wajib diisi" });
+    if (!name) return res.status(400).json({ message: "name is required" });
 
     const owner = await prisma.owner.update({
       where: { id: Number(req.params.id) },
@@ -48,13 +48,13 @@ router.delete("/:id", async (req, res) => {
 
     if (activeStoreCount > 0) {
       return res.status(409).json({
-        message: "Owner masih punya store aktif, reassign atau hapus dulu store-nya",
+        message: "Owner still has active stores, reassign or delete the stores first",
       });
     }
 
     await recordActivity({ userId: req.userId, subjectType: "Owner", subjectId: Number(req.params.id), event: "deleted", itemName: "Owner" });
     await prisma.owner.delete({ where: { id: Number(req.params.id) } });
-    res.json({ message: "Owner dihapus" });
+    res.json({ message: "Owner deleted" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

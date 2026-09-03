@@ -24,7 +24,6 @@ router.get("/", async (req, res) => {
       select: { completedAt: true, storeId: true, categoryId: true, ownerId: true },
     });
 
-    // --- Periode sebelumnya, buat %-change ---
     const periodLengthDays = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
     const prevEnd = new Date(start);
     prevEnd.setDate(prevEnd.getDate() - 1);

@@ -22,7 +22,7 @@ router.get("/:id", async (req, res) => {
       include: { owner: true },
     });
     if (!store || store.userId !== req.userId) {
-      return res.status(403).json({ message: "Bukan store milik lo" });
+      return res.status(403).json({ message: "Not your store" });
     }
 
     const period = ["week", "month", "year"].includes(req.query.period) ? req.query.period : "week";
@@ -86,7 +86,7 @@ router.post("/", async (req, res) => {
   try {
     const { name, color, ownerId } = req.body;
     if (!name || !color || !ownerId) {
-      return res.status(400).json({ message: "name, color, ownerId wajib diisi" });
+      return res.status(400).json({ message: "name, color, ownerId are required" });
     }
 
     const store = await prisma.store.create({
@@ -109,7 +109,7 @@ router.put("/:id", async (req, res) => {
   try {
     const store = await prisma.store.findUnique({ where: { id: Number(req.params.id) } });
     if (!store || store.userId !== req.userId) {
-      return res.status(403).json({ message: "Bukan store milik lo" });
+      return res.status(403).json({ message: "Not your store" });
     }
 
     const { name, color, ownerId } = req.body;
@@ -133,12 +133,12 @@ router.delete("/:id", async (req, res) => {
   try {
     const store = await prisma.store.findUnique({ where: { id: Number(req.params.id) } });
     if (!store || store.userId !== req.userId) {
-      return res.status(403).json({ message: "Bukan store milik lo" });
+      return res.status(403).json({ message: "Not your store" });
     }
 
     await recordActivity({ userId: req.userId, subjectType: "Store", subjectId: store.id, event: "deleted", itemName: store.name });
     await prisma.store.delete({ where: { id: Number(req.params.id) } });
-    res.json({ message: "Store dihapus" });
+    res.json({ message: "Store deleted" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

@@ -17,7 +17,7 @@ const TYPES = {
 
 router.get("/", async (req, res) => {
   const type = TYPES[req.query.type];
-  if (!type) return res.status(400).json({ message: "type tidak valid" });
+  if (!type) return res.status(400).json({ message: "Type is not valid" });
 
   const items = await prisma[type.model].findMany({
     where: {
@@ -31,7 +31,7 @@ router.get("/", async (req, res) => {
 
 router.post("/:type/:id/restore", async (req, res) => {
   const type = TYPES[req.params.type];
-  if (!type) return res.status(400).json({ message: "type tidak valid" });
+  if (!type) return res.status(400).json({ message: "Type is not valid" });
 
   const item = await prisma[type.model].findFirst({
     where: {
@@ -40,7 +40,7 @@ router.post("/:type/:id/restore", async (req, res) => {
       ...(type.scoped ? { userId: req.userId } : {}),
     },
   });
-  if (!item) return res.status(404).json({ message: "Item tidak ditemukan di trash" });
+  if (!item) return res.status(404).json({ message: "Item not found in trash" });
 
   const restored = await prisma[type.model].update({
     where: { id: item.id },
@@ -62,7 +62,7 @@ router.post("/:type/:id/restore", async (req, res) => {
 
 router.delete("/:type/:id", async (req, res) => {
   const type = TYPES[req.params.type];
-  if (!type) return res.status(400).json({ message: "type tidak valid" });
+  if (!type) return res.status(400).json({ message: "Type is not valid" });
 
   const item = await prisma[type.model].findFirst({
     where: {
@@ -71,14 +71,14 @@ router.delete("/:type/:id", async (req, res) => {
       ...(type.scoped ? { userId: req.userId } : {}),
     },
   });
-  if (!item) return res.status(404).json({ message: "Item tidak ditemukan di trash" });
+  if (!item) return res.status(404).json({ message: "Item not found in trash" });
 
   // Hard delete beneran — library soft-delete gak bisa dipakai buat ini,
   // jadi turun ke raw SQL. AMAN karena `type.table` cuma bisa dari daftar
   // TYPES di atas (fixed), gak pernah langsung dari input user.
   await prisma.$executeRawUnsafe(`DELETE FROM "${type.table}" WHERE id = $1`, item.id);
 
-  res.json({ message: "Item dihapus permanen" });
+  res.json({ message: "Item permanently deleted" });
 });
 
 module.exports = router;

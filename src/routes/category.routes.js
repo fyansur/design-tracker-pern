@@ -9,10 +9,10 @@ router.get("/", async (req, res) => {
   const categories = await prisma.category.findMany();
   res.json(categories);
 });
-router.post("/", async (req, res) => {
+router.post("/", authRequired, async (req, res) => {
   try {
     const { name } = req.body;
-    if (!name) return res.status(400).json({ message: "name wajib diisi" });
+    if (!name) return res.status(400).json({ message: "name is required" });
 
     // firstOrCreate-equivalent: kalau nama udah ada, pakai yang lama
     const category = await prisma.category.findFirst({ where: { name } })
@@ -24,7 +24,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-router.put("/:id", async (req, res) => {
+router.put("/:id", authRequired, async (req, res) => {
   try {
     const { name } = req.body;
     const category = await prisma.category.update({
@@ -37,10 +37,10 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", authRequired, async (req, res) => {
   try {
     await prisma.category.delete({ where: { id: Number(req.params.id) } });
-    res.json({ message: "Category dihapus" });
+    res.json({ message: "Category deleted" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

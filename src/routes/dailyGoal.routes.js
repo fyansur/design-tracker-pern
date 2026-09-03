@@ -28,7 +28,7 @@ router.get("/", async (req, res) => {
             const scopeFilter =
                 dg.scope === "STORE" ? { storeId: dg.storeId } :
                     dg.scope === "OWNER" ? { ownerId: dg.ownerId } :
-                        {}; // GLOBAL: gak ada filter tambahan
+                        {}; 
 
             const achievedToday = await prisma.design.count({
                 where: {
@@ -50,7 +50,7 @@ router.post("/", async (req, res) => {
     try {
         const { scope, storeId, ownerId, targetCount } = req.body;
         if (!scope || !targetCount) {
-            return res.status(400).json({ message: "scope dan targetCount wajib diisi" });
+            return res.status(400).json({ message: "scope dan targetCount are required" });
         }
 
         const resolvedStoreId = scope === "STORE" ? Number(storeId) : null;
@@ -60,7 +60,7 @@ router.post("/", async (req, res) => {
             where: { userId: req.userId, scope, storeId: resolvedStoreId, ownerId: resolvedOwnerId },
         });
         if (exists) {
-            return res.status(409).json({ message: "Daily goal untuk target ini udah ada" });
+            return res.status(409).json({ message: "Daily goal for this target already exists" });
         }
 
         const dailyGoal = await prisma.dailyGoal.create({
@@ -91,11 +91,11 @@ router.put("/:id/target", validate(updateTargetSchema), async (req, res) => {
     try {
         const dailyGoal = await prisma.dailyGoal.findUnique({ where: { id: Number(req.params.id) } });
         if (!dailyGoal || dailyGoal.userId !== req.userId) {
-            return res.status(403).json({ message: "Bukan daily goal milik lo" });
+            return res.status(403).json({ message: "Not your daily goal" });
         }
 
         const { targetCount } = req.body;
-        if (!targetCount) return res.status(400).json({ message: "targetCount wajib diisi" });
+        if (!targetCount) return res.status(400).json({ message: "targetCount is required" });
 
         // upsert row HARI INI — kalau udah ada, update; kalau belum, buat baru.
         // Hari-hari sebelumnya gak pernah disentuh, histori tetap akurat.
@@ -130,7 +130,7 @@ router.delete("/:id", async (req, res) => {
     try {
         const dailyGoal = await prisma.dailyGoal.findUnique({ where: { id: Number(req.params.id) } });
         if (!dailyGoal || dailyGoal.userId !== req.userId) {
-            return res.status(403).json({ message: "Bukan daily goal milik lo" });
+            return res.status(403).json({ message: "Not your daily goal" });
         }
         await recordActivity({
             userId: req.userId,
@@ -140,7 +140,7 @@ router.delete("/:id", async (req, res) => {
             itemName: `Daily Goal (${dailyGoal.scope})`,
         });
         await prisma.dailyGoal.delete({ where: { id: Number(req.params.id) } });
-        res.json({ message: "Daily goal dihapus" });
+        res.json({ message: "Daily goal deleted" });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }

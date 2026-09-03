@@ -6,7 +6,7 @@ const router = Router();
 router.get("/:token", async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { monitorToken: req.params.token } });
-    if (!user) return res.status(404).json({ message: "Monitor tidak ditemukan" });
+    if (!user) return res.status(404).json({ message: "Monitor not found" });
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);

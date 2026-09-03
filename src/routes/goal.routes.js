@@ -36,7 +36,7 @@ router.post("/", async (req, res) => {
   try {
     const { name, scope, storeId, ownerId, targetCount, durationType, durationAmount } = req.body;
 
-    if (!targetCount) return res.status(400).json({ message: "targetCount wajib diisi" });
+    if (!targetCount) return res.status(400).json({ message: "targetCount is required" });
 
     let resolvedScope = "GLOBAL";
     let resolvedStoreId = null;
@@ -45,7 +45,7 @@ router.post("/", async (req, res) => {
 
     if (scope === "STORE" && storeId) {
       const store = await prisma.store.findUnique({ where: { id: Number(storeId) } });
-      if (!store || store.userId !== req.userId) return res.status(403).json({ message: "Bukan store milik lo" });
+      if (!store || store.userId !== req.userId) return res.status(403).json({ message: "Not your store" });
 
       // BARU: cek campaign aktif buat store ini
       const existingGoals = await prisma.goal.findMany({
@@ -57,7 +57,7 @@ router.post("/", async (req, res) => {
         return completedCount < g.targetCount;
       });
       if (hasActiveCampaign) {
-        return res.status(409).json({ message: "Store ini masih punya campaign aktif yang belum selesai" });
+        return res.status(409).json({ message: "This store still has an active campaign that is not yet completed" });
       }
 
       resolvedScope = "STORE";
@@ -65,12 +65,12 @@ router.post("/", async (req, res) => {
       resolvedName = name || store.name;
     } else if (scope === "OWNER" && ownerId) {
       const owner = await prisma.owner.findUnique({ where: { id: Number(ownerId) } });
-      if (!owner) return res.status(404).json({ message: "Owner tidak ditemukan" });
+      if (!owner) return res.status(404).json({ message: "Owner not found" });
       resolvedScope = "OWNER";
       resolvedOwnerId = owner.id;
       resolvedName = name || owner.name;
     } else if (!name) {
-      return res.status(400).json({ message: "name wajib diisi untuk goal global" });
+      return res.status(400).json({ message: "name is required for global goals" });
     }
 
     const goal = await prisma.goal.create({
@@ -94,7 +94,7 @@ router.post("/", async (req, res) => {
 router.put("/:id/pin", async (req, res) => {
   try {
     const goal = await prisma.goal.findUnique({ where: { id: Number(req.params.id) } });
-    if (!goal || goal.userId !== req.userId) return res.status(403).json({ message: "Bukan goal milik lo" });
+    if (!goal || goal.userId !== req.userId) return res.status(403).json({ message: "Not your goal" });
 
     const updated = await prisma.goal.update({
       where: { id: Number(req.params.id) },
@@ -109,11 +109,11 @@ router.put("/:id/pin", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     const goal = await prisma.goal.findUnique({ where: { id: Number(req.params.id) } });
-    if (!goal || goal.userId !== req.userId) return res.status(403).json({ message: "Bukan goal milik lo" });
+    if (!goal || goal.userId !== req.userId) return res.status(403).json({ message: "Not your goal" });
 
     await recordActivity({ userId: req.userId, subjectType: "Goal", subjectId: goal.id, event: "deleted", itemName: goal.name });
     await prisma.goal.delete({ where: { id: Number(req.params.id) } });
-    res.json({ message: "Goal dihapus" });
+    res.json({ message: "Goal deleted" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
