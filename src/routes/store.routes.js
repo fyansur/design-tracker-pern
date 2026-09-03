@@ -10,9 +10,22 @@ const { getPeriodRange, buildChartData } = require("../lib/chartHelpers");
 router.get("/", async (req, res) => {
   const stores = await prisma.store.findMany({
     where: { userId: req.userId },
-    include: { owner: true },
+    include: {
+      owner: true,
+      _count: { select: { designs: true } },
+    },
   });
-  res.json(stores);
+
+  const storesWithCompleted = await Promise.all(
+    stores.map(async (s) => {
+      const completedCount = await prisma.design.count({
+        where: { storeId: s.id, isCompleted: true },
+      });
+      return { ...s, designCount: s._count.designs, completedCount };
+    })
+  );
+
+  res.json(storesWithCompleted);
 });
 
 router.get("/:id", async (req, res) => {
