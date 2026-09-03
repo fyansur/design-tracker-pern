@@ -46,6 +46,20 @@ router.post("/", async (req, res) => {
     if (scope === "STORE" && storeId) {
       const store = await prisma.store.findUnique({ where: { id: Number(storeId) } });
       if (!store || store.userId !== req.userId) return res.status(403).json({ message: "Bukan store milik lo" });
+
+      // BARU: cek campaign aktif buat store ini
+      const existingGoals = await prisma.goal.findMany({
+        where: { userId: req.userId, scope: "STORE", storeId: store.id },
+        include: { designs: { include: { design: true } } },
+      });
+      const hasActiveCampaign = existingGoals.some((g) => {
+        const completedCount = g.designs.filter((dg) => dg.design.isCompleted).length;
+        return completedCount < g.targetCount;
+      });
+      if (hasActiveCampaign) {
+        return res.status(409).json({ message: "Store ini masih punya campaign aktif yang belum selesai" });
+      }
+
       resolvedScope = "STORE";
       resolvedStoreId = store.id;
       resolvedName = name || store.name;
