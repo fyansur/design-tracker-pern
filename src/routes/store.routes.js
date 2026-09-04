@@ -149,6 +149,12 @@ router.delete("/:id", async (req, res) => {
       return res.status(403).json({ message: "Not your store" });
     }
 
+    // BARU: null-in storeId di semua Design yang masih nunjuk ke sini
+    await prisma.design.updateMany({
+      where: { storeId: store.id },
+      data: { storeId: null },
+    });
+
     await recordActivity({ userId: req.userId, subjectType: "Store", subjectId: store.id, event: "deleted", itemName: store.name });
     await prisma.store.delete({ where: { id: Number(req.params.id) } });
     res.json({ message: "Store deleted" });

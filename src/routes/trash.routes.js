@@ -42,7 +42,6 @@ router.post("/:type/:id/restore", async (req, res) => {
   });
   if (!item) return res.status(404).json({ message: "Item not found in trash" });
 
-  // BARU: cegah duplikat pas restore Daily Goal — cek ulang aturan "1 per scope/store/owner"
   if (req.params.type === "daily-goal") {
     const conflict = await prisma.dailyGoal.findFirst({
       where: {
@@ -58,7 +57,16 @@ router.post("/:type/:id/restore", async (req, res) => {
       });
     }
   }
-
+  if (req.params.type === "category") {
+    const conflict = await prisma.category.findFirst({
+      where: { name: item.name, deletedAt: null, id: { not: item.id } },
+    });
+    if (conflict) {
+      return res.status(409).json({
+        message: "A category with this name already exists. Delete or rename it first before restoring this one.",
+      });
+    }
+  }
   const restored = await prisma[type.model].update({
     where: { id: item.id },
     data: { deletedAt: null },
