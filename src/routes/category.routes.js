@@ -39,6 +39,11 @@ router.put("/:id", async (req, res) => {
 
 router.delete("/:id", async (req, res) => {
   try {
+    await prisma.design.updateMany({
+      where: { categoryId: Number(req.params.id) },
+      data: { categoryId: null },
+    });
+
     const category = await prisma.category.update({
       where: { id: Number(req.params.id) },
       data: { deletedAt: new Date() },
