@@ -73,7 +73,7 @@ router.get("/:id", async (req, res) => {
     });
     const goalsWithProgress = goals.map((g) => ({
       ...g,
-      completedCount: g.designs.filter((dg) => dg.design.isCompleted).length,
+      completedCount: g.designs.filter((dg) => dg.design?.isCompleted).length,
     }));
 
     const designs = await prisma.design.findMany({

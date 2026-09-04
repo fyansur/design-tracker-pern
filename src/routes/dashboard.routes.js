@@ -116,7 +116,7 @@ router.get("/", async (req, res) => {
     });
     const goalsWithProgress = goals.map((g) => ({
       ...g,
-      completedCount: g.designs.filter((dg) => dg.design.isCompleted).length,
+      completedCount: g.designs.filter((dg) => dg.design?.isCompleted).length,
     }));
 
     // --- Daily Goals ---

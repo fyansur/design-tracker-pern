@@ -123,18 +123,26 @@ router.put("/:id/pin", async (req, res) => {
 });
 
 router.delete("/:id", async (req, res) => {
-    try {
-        const design = await prisma.design.findUnique({ where: { id: Number(req.params.id) } });
-        if (!design || design.userId !== req.userId) {
-            return res.status(403).json({ message: "Not your design" });
-        }
-
-        await prisma.design.delete({ where: { id: Number(req.params.id) } });
-        res.json({ message: "Design deleted" });
-        await recordActivity({ userId: req.userId, subjectType: "Design", subjectId: design.id, event: "deleted", itemName: design.name });
-    } catch (err) {
-        res.status(500).json({ message: err.message });
+  try {
+    const design = await prisma.design.findUnique({ where: { id: Number(req.params.id) } });
+    if (!design || design.userId !== req.userId) {
+      return res.status(403).json({ message: "This design doesn't belong to you" });
     }
+
+    await recordActivity({ userId: req.userId, subjectType: "Design", subjectId: design.id, event: "deleted", itemName: design.name });
+
+    // BARU: soft-delete juga DesignGoal yang masih nunjuk ke design ini,
+    // biar gak ada row "yatim" yang bikin dg.design jadi null pas design lagi di-trash
+    await prisma.designGoal.updateMany({
+      where: { designId: design.id, deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
+
+    await prisma.design.delete({ where: { id: Number(req.params.id) } });
+    res.json({ message: "Design deleted" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
 
 router.post("/:id/goals", async (req, res) => {

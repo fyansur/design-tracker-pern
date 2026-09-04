@@ -26,7 +26,7 @@ router.get("/", async (req, res) => {
   // progress dihitung dari design yang di-assign DAN completed
   const withProgress = goals.map((g) => ({
     ...g,
-    completedCount: g.designs.filter((dg) => dg.design.isCompleted).length,
+    completedCount: g.designs.filter((dg) => dg.design?.isCompleted).length,
   }));
 
   res.json(withProgress);
@@ -53,7 +53,7 @@ router.post("/", async (req, res) => {
         include: { designs: { include: { design: true } } },
       });
       const hasActiveCampaign = existingGoals.some((g) => {
-        const completedCount = g.designs.filter((dg) => dg.design.isCompleted).length;
+        const completedCount = g.designs.filter((dg) => dg.design?.isCompleted).length;
         return completedCount < g.targetCount;
       });
       if (hasActiveCampaign) {

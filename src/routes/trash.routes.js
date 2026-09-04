@@ -73,12 +73,20 @@ router.delete("/:type/:id", async (req, res) => {
   });
   if (!item) return res.status(404).json({ message: "Item not found in trash" });
 
-  // Hard delete beneran — library soft-delete gak bisa dipakai buat ini,
-  // jadi turun ke raw SQL. AMAN karena `type.table` cuma bisa dari daftar
-  // TYPES di atas (fixed), gak pernah langsung dari input user.
-  await prisma.$executeRawUnsafe(`DELETE FROM "${type.table}" WHERE id = $1`, item.id);
+  try {
+    // Bersihin dulu child rows yang masih nunjuk balik ke row ini (gak ada onDelete: Cascade di schema)
+    if (req.params.type === "daily-goal") {
+      await prisma.dailyGoalTarget.deleteMany({ where: { dailyGoalId: item.id } });
+    } else if (req.params.type === "goal") {
+      await prisma.designGoal.deleteMany({ where: { goalId: item.id } });
+    } else if (req.params.type === "design") {
+      await prisma.designGoal.deleteMany({ where: { designId: item.id } });
+    }
 
-  res.json({ message: "Item permanently deleted" });
+    await prisma.$executeRawUnsafe(`DELETE FROM "${type.table}" WHERE id = $1`, item.id);
+    res.json({ message: "Item permanently deleted" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
-
 module.exports = router;
