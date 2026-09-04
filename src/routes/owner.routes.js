@@ -48,7 +48,7 @@ router.delete("/:id", async (req, res) => {
 
     if (activeStoreCount > 0) {
       return res.status(409).json({
-        message: "Owner still has active stores, reassign or delete the stores first",
+        message: "Owner still has active stores, reassign or delete the stores first.",
       });
     }
 

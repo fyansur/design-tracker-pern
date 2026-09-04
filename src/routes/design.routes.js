@@ -74,7 +74,7 @@ router.put("/:id", async (req, res) => {
         if (isCompleted === true && !resolvedOwnerId) {
             return res.status(422).json({
                 message: "Design must have an owner before it can be completed",
-                errors: { ownerId: "Owner is required (or select a store first)" },
+                errors: { ownerId: "Owner is required (or select a store first.)" },
             });
         }
 

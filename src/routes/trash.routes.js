@@ -42,6 +42,23 @@ router.post("/:type/:id/restore", async (req, res) => {
   });
   if (!item) return res.status(404).json({ message: "Item not found in trash" });
 
+  // BARU: cegah duplikat pas restore Daily Goal — cek ulang aturan "1 per scope/store/owner"
+  if (req.params.type === "daily-goal") {
+    const conflict = await prisma.dailyGoal.findFirst({
+      where: {
+        userId: item.userId,
+        scope: item.scope,
+        storeId: item.storeId,
+        ownerId: item.ownerId,
+      },
+    });
+    if (conflict) {
+      return res.status(409).json({
+        message: "A daily goal for this scope already exists. Delete it first before restoring this one.",
+      });
+    }
+  }
+
   const restored = await prisma[type.model].update({
     where: { id: item.id },
     data: { deletedAt: null },
@@ -74,13 +91,14 @@ router.delete("/:type/:id", async (req, res) => {
   if (!item) return res.status(404).json({ message: "Item not found in trash" });
 
   try {
-    // Bersihin dulu child rows yang masih nunjuk balik ke row ini (gak ada onDelete: Cascade di schema)
+    // Raw SQL — WAJIB, biar bener-bener DELETE row-nya, bukan di-intercept
+    // extension soft-delete jadi UPDATE deletedAt doang
     if (req.params.type === "daily-goal") {
-      await prisma.dailyGoalTarget.deleteMany({ where: { dailyGoalId: item.id } });
+      await prisma.$executeRawUnsafe(`DELETE FROM "DailyGoalTarget" WHERE "dailyGoalId" = $1`, item.id);
     } else if (req.params.type === "goal") {
-      await prisma.designGoal.deleteMany({ where: { goalId: item.id } });
+      await prisma.$executeRawUnsafe(`DELETE FROM "DesignGoal" WHERE "goalId" = $1`, item.id);
     } else if (req.params.type === "design") {
-      await prisma.designGoal.deleteMany({ where: { designId: item.id } });
+      await prisma.$executeRawUnsafe(`DELETE FROM "DesignGoal" WHERE "designId" = $1`, item.id);
     }
 
     await prisma.$executeRawUnsafe(`DELETE FROM "${type.table}" WHERE id = $1`, item.id);
