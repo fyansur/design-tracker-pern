@@ -78,7 +78,7 @@ router.get("/:id", async (req, res) => {
 
     const designs = await prisma.design.findMany({
       where: { userId: req.userId, storeId: store.id },
-      include: { owner: true, category: true, store: true },
+      include: { owner: true, category: true, store: true, goals: { include: { goal: true } } },
       orderBy: { createdAt: "desc" },
     });
 

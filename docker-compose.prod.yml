@@ -17,6 +17,7 @@ services:
     depends_on:
       - postgres
     environment:
+      TZ: Asia/Jakarta
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
       JWT_SECRET: ${JWT_SECRET}
       CLIENT_ORIGIN: ${CLIENT_ORIGIN}
