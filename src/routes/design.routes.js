@@ -9,7 +9,7 @@ router.use(authRequired);
 router.get("/", async (req, res) => {
     const designs = await prisma.design.findMany({
         where: { userId: req.userId },
-        include: { owner: true, store: true, category: true, goals: { include: { goal: true } } },
+        include: { owner: true, store: true, category: true, goals: { include: { goal: true } }, attachments: true },
         orderBy: { createdAt: "desc" },
     });
     res.json(designs);

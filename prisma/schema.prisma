@@ -90,6 +90,7 @@ model Design {
   deletedAt DateTime?
 
   goals DesignGoal[]
+  attachments DesignAttachment[]
 
   user     User      @relation(fields: [userId], references: [id])
   owner    Owner?    @relation(fields: [ownerId], references: [id])
@@ -185,4 +186,16 @@ model ActivityLog {
   user User? @relation(fields: [userId], references: [id])
 
   @@index([subjectType, subjectId])
+}
+
+model DesignAttachment {
+  id        Int      @id @default(autoincrement())
+  designId  Int
+  fileName  String
+  fileKey   String   @unique
+  fileSize  Int
+  mimeType  String
+  createdAt DateTime @default(now())
+
+  design Design @relation(fields: [designId], references: [id])
 }

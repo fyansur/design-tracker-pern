@@ -4,7 +4,7 @@ function authRequired(req, res, next) {
   const token = req.cookies.token;
 
   if (!token) {
-    return res.status(401).json({ message: "Belum login" });
+    return res.status(401).json({ message: "Not logged in" });
   }
 
   try {
@@ -12,7 +12,7 @@ function authRequired(req, res, next) {
     req.userId = payload.userId; // dipakai di semua route berikutnya
     next();
   } catch (err) {
-    return res.status(401).json({ message: "Token invalid atau expired" });
+    return res.status(401).json({ message: "Token invalid or expired" });
   }
 }
 

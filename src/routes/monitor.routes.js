@@ -126,6 +126,7 @@ router.get("/:token", async (req, res) => {
         owner_id: d.store?.owner?.id ?? null,
         owner_name: d.store?.owner?.name || "Unknown Owner",
         completed_at: d.completedAt,
+        reference_url: d.referenceUrl,
       })),
       owners,
       currentOwnerId: ownerId || "all",
