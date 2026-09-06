@@ -8,19 +8,18 @@ router.get("/:token", async (req, res) => {
     const user = await prisma.user.findUnique({ where: { monitorToken: req.params.token } });
     if (!user) return res.status(404).json({ message: "Monitor not found" });
 
-    const ownerId = req.query.owner_id;
-    const ownerFilter = ownerId && ownerId !== "all" ? Number(ownerId) : null;
+    const ownerIdsParam = req.query.owner_ids;
+    const ownerIds = ownerIdsParam ? ownerIdsParam.split(",").map(Number).filter(Boolean) : null;
 
-    // Filter dipakai konsisten di SEMUA angka di halaman ini
     const completedWhere = {
       userId: user.id,
       isCompleted: true,
-      ...(ownerFilter ? { store: { ownerId: ownerFilter } } : {}),
+      ...(ownerIds && ownerIds.length > 0 ? { store: { ownerId: { in: ownerIds } } } : {}),
     };
     const pendingWhere = {
       userId: user.id,
       isCompleted: false,
-      ...(ownerFilter ? { ownerId: ownerFilter } : {}),
+      ...(ownerIds && ownerIds.length > 0 ? { ownerId: { in: ownerIds } } : {}),
     };
 
     const today = new Date();
@@ -94,7 +93,7 @@ router.get("/:token", async (req, res) => {
     const storeBreakdown = Object.values(storeBreakdownMap).sort((a, b) => b.count - a.count);
 
     const page = Number(req.query.page) || 1;
-    const perPage = 5;
+    const perPage = 10;
     const recentCompletedDesigns = await prisma.design.findMany({
       where: completedWhere,
       include: { store: { include: { owner: true } } },
@@ -129,7 +128,7 @@ router.get("/:token", async (req, res) => {
         reference_url: d.referenceUrl,
       })),
       owners,
-      currentOwnerId: ownerId || "all",
+      currentOwnerIds: ownerIds || [],
       perPage,
     });
   } catch (err) {
