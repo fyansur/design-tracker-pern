@@ -163,7 +163,7 @@ model DailyGoalTarget {
   id            Int      @id @default(autoincrement())
   dailyGoalId   Int
   targetCount   Int
-  effectiveFrom DateTime @db.Date
+  effectiveFrom DateTime
   createdAt     DateTime @default(now())
   deletedAt DateTime?
 
