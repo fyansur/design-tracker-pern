@@ -14,7 +14,7 @@ router.get("/:token", async (req, res) => {
     const completedWhere = {
       userId: user.id,
       isCompleted: true,
-      ...(ownerIds && ownerIds.length > 0 ? { store: { ownerId: { in: ownerIds } } } : {}),
+      ...(ownerIds && ownerIds.length > 0 ? { ownerId: { in: ownerIds } } : {}),
     };
     const pendingWhere = {
       userId: user.id,
@@ -68,7 +68,7 @@ router.get("/:token", async (req, res) => {
 
       const storeMap = {};
       for (const d of dayDesigns) {
-        const name = d.store?.name || "Unknown Store";
+        const name = d.store?.name || "No Store Assigned";
         storeMap[name] = storeMap[name] || { store_name: name, color: d.store?.color || "#9e9e9e", count: 0 };
         storeMap[name].count++;
       }
@@ -86,7 +86,7 @@ router.get("/:token", async (req, res) => {
     // Breakdown per Store, ikut filter owner yang sama
     const storeBreakdownMap = {};
     for (const d of rawDesigns) {
-      const name = d.store?.name || "Unknown Store";
+      const name = d.store?.name || "No Store Assigned";
       storeBreakdownMap[name] = storeBreakdownMap[name] || { store_name: name, color: d.store?.color || "#9e9e9e", count: 0 };
       storeBreakdownMap[name].count++;
     }
@@ -96,17 +96,16 @@ router.get("/:token", async (req, res) => {
     const perPage = 10;
     const recentCompletedDesigns = await prisma.design.findMany({
       where: completedWhere,
-      include: { store: { include: { owner: true } } },
+      include: { store: { include: { owner: true } }, owner: true }, // + owner: true
       orderBy: { completedAt: "desc" },
       skip: (page - 1) * perPage,
       take: perPage,
     });
 
-    const storesWithDesigns = await prisma.store.findMany({
+    const owners = await prisma.owner.findMany({
       where: { designs: { some: { userId: user.id } } },
-      include: { owner: true },
+      orderBy: { name: "asc" },
     });
-    const owners = [...new Map(storesWithDesigns.map((s) => [s.owner.id, s.owner])).values()];
 
     res.json({
       monitoredUser: { name: user.name, isActive: user.isOnline },
@@ -122,8 +121,8 @@ router.get("/:token", async (req, res) => {
         id: d.id,
         name: d.name,
         store_name: d.store?.name || "Unknown Store",
-        owner_id: d.store?.owner?.id ?? null,
-        owner_name: d.store?.owner?.name || "Unknown Owner",
+        owner_id: d.owner?.id ?? d.store?.owner?.id ?? null,        // diubah
+        owner_name: d.owner?.name ?? d.store?.owner?.name ?? "Unknown Owner", // diubah
         completed_at: d.completedAt,
         reference_url: d.referenceUrl,
       })),
