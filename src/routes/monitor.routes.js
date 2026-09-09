@@ -120,7 +120,7 @@ router.get("/:token", async (req, res) => {
       recentCompletedDesigns: recentCompletedDesigns.map((d) => ({
         id: d.id,
         name: d.name,
-        store_name: d.store?.name || "Unknown Store",
+        store_name: d.store?.name || "No Store Assigned",
         owner_id: d.owner?.id ?? d.store?.owner?.id ?? null,        // diubah
         owner_name: d.owner?.name ?? d.store?.owner?.name ?? "Unknown Owner", // diubah
         completed_at: d.completedAt,
